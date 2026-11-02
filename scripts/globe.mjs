@@ -26,7 +26,6 @@ const INFO_X = PAD + COLS * CELL_W + 28
 const WIDTH = 940
 
 const LAND_RAMP = '-=+*#%'
-const SEA_RAMP = '  .·'
 
 const info = [
   ['arjan@ak-01', null],
@@ -54,6 +53,26 @@ function isLand(lat, lon) {
   return mask[v * MASK_W + u] < 128
 }
 
+// Share of a 3x3 grid of samples within the cell that falls on land, for smoother coastlines.
+function landFraction(col, row, spin) {
+  let land = 0
+  let total = 0
+  for (let sy = 0; sy < 3; sy++) {
+    for (let sx = 0; sx < 3; sx++) {
+      const x = (col + (sx + 0.5) / 3 - CX) / R_X
+      const y = (row + (sy + 0.5) / 3 - CY) / R_Y
+      const d = x * x + y * y
+      if (d > 1) continue
+      // undo the axial tilt (tilted sideways, north to the upper right)
+      const xt = x * Math.cos(TILT) - y * Math.sin(TILT)
+      const yt = x * Math.sin(TILT) + y * Math.cos(TILT)
+      total++
+      if (isLand(Math.asin(-yt), Math.atan2(xt, Math.sqrt(1 - d)) + spin)) land++
+    }
+  }
+  return total ? land / total : 0
+}
+
 function renderFrame(f) {
   const spin = (-f / FRAMES) * 2 * Math.PI
   const land = Array.from({ length: ROWS }, () => Array(COLS).fill(' '))
@@ -66,18 +85,14 @@ function renderFrame(f) {
       const d = x * x + y * y
       if (d > 1) continue
       const z = Math.sqrt(1 - d)
-      // undo the axial tilt (tilted sideways, north to the upper right)
-      const xt = x * Math.cos(TILT) - y * Math.sin(TILT)
-      const yt = x * Math.sin(TILT) + y * Math.cos(TILT)
-      const lat = Math.asin(-yt)
-      const lon = Math.atan2(xt, z) + spin
       const light = x * LIGHT[0] + y * LIGHT[1] + z * LIGHT[2]
       const b = Math.max(0, Math.min(0.999, light * 0.9 + 0.12))
-      if (isLand(lat, lon)) {
+      if (landFraction(col, row, spin) >= 0.5) {
         land[row][col] = light < 0 ? '.' : LAND_RAMP[Math.floor(b * LAND_RAMP.length)]
-      } else if (light > -0.15) {
-        sea[row][col] = SEA_RAMP[Math.floor(b * SEA_RAMP.length)]
-      } else if (d > 0.9) {
+      } else if (light > -0.15 || d > 0.9) {
+        sea[row][col] = b < 0.55 ? '.' : '·'
+      } else if ((row + col) % 2 === 0) {
+        // the night-side ocean stays faintly visible, so the disc keeps its shape
         sea[row][col] = '.'
       }
     }
