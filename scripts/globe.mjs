@@ -99,9 +99,11 @@ function renderFrame(f) {
   return { land: land.map((r) => r.join('')), sea: sea.map((r) => r.join('')), sat }
 }
 
+// Seen from slightly above the orbital plane: the near half (z > 0) is the lower arc, the far half the upper one.
+// Prograde, like the ISS: in front it moves left to right, the same way the earth's surface turns.
 function orbit(a) {
-  const x = Math.cos(a) * (R_X + 8)
-  const y = -Math.sin(a) * 3.4 + Math.cos(a) * 1.6
+  const x = -Math.cos(a) * (R_X + 8)
+  const y = Math.sin(a) * 3.4 - Math.cos(a) * 1.6
   return { col: CX + x, row: CY + y, z: Math.sin(a), inDisc: (x / R_X) ** 2 + (y / R_Y) ** 2 < 1.12 }
 }
 
